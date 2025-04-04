@@ -21,6 +21,16 @@ function mobileTabletCheck() {
     return check;
 }
 const isMobileOrTablet = mobileTabletCheck();
+
+// Load the export URL from localStorage if available, otherwise use default
+const getExportUrl = () => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        const savedUrl = localStorage.getItem('dwExportUrl');
+        if (savedUrl) return savedUrl;
+    }
+    return 'https://example.com/api/transcriptions'; // Default URL
+};
+
 export default {
     SAMPLING_RATE: 16000,
     DEFAULT_AUDIO_URL: `https://raw.githubusercontent.com/PierreMesure/whisper-web/refs/heads/main/public/palme.wav`,
@@ -29,5 +39,6 @@ export default {
     DEFAULT_LANGUAGE: "swedish",
     DEFAULT_DTYPE: isMobileOrTablet ? "q4" : "q8",
     DEFAULT_MULTILINGUAL: true,
-    DEFAULT_GPU: false
+    DEFAULT_GPU: false,
+    EXPORT_URL: getExportUrl()
 };

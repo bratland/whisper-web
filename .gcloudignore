@@ -1,0 +1,19 @@
+# Ignore everything in .gitignore
+.gitignore
+# Node.js dependencies
+node_modules/
+npm-debug.log
+# Build outputs
+dist/
+# Local development files
+.env
+.env.*
+# IDE files
+.vscode/
+.idea/
+# Git files
+.git/
+.github/
+# Other files
+*.log
+.DS_Store

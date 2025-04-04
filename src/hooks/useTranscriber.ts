@@ -36,6 +36,7 @@ export interface Transcriber {
     onInputChange: () => void;
     isBusy: boolean;
     isModelLoading: boolean;
+    isModelReady: boolean;
     progressItems: ProgressItem[];
     start: (audioData: AudioBuffer | undefined) => void;
     output?: TranscriberData;
@@ -59,6 +60,7 @@ export function useTranscriber(): Transcriber {
     );
     const [isBusy, setIsBusy] = useState(false);
     const [isModelLoading, setIsModelLoading] = useState(false);
+    const [isModelReady, setIsModelReady] = useState(false);
 
     const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
 
@@ -108,6 +110,7 @@ export function useTranscriber(): Transcriber {
                 break;
             case "ready":
                 setIsModelLoading(false);
+                setIsModelReady(true);
                 break;
             case "error":
                 setIsBusy(false);
@@ -190,6 +193,7 @@ export function useTranscriber(): Transcriber {
             onInputChange,
             isBusy,
             isModelLoading,
+            isModelReady,
             progressItems,
             start: postRequest,
             output: transcript,
@@ -209,6 +213,7 @@ export function useTranscriber(): Transcriber {
     }, [
         isBusy,
         isModelLoading,
+        isModelReady,
         progressItems,
         postRequest,
         transcript,

@@ -39,25 +39,141 @@ class PipelineFactory {
 self.addEventListener("message", async (event) => {
     const message = event.data;
 
-    // Do some work...
-    // TODO use message data
-    let transcript = await transcribe(
-        message.audio,
-        message.model,
-        message.multilingual,
-        message.dtype,
-        message.gpu,
-        message.subtask,
-        message.language,
-    );
-    if (transcript === null) return;
-
-    // Send the result back to the main thread
-    self.postMessage({
-        status: "complete",
-        task: "automatic-speech-recognition",
-        data: transcript,
-    });
+    try {
+        // Check if this is a tiny audio buffer (for preloading)
+        if (message.audio && message.audio.length < 500) {
+            console.log("Small audio buffer detected - preloading model");
+            
+            // Get the pipeline factory
+            const p = AutomaticSpeechRecognitionPipelineFactory;
+            
+            // Setup model parameters
+            let modelName = message.model;
+            if (!modelName.startsWith("distil-whisper/") && !message.multilingual) {
+                modelName += ".en";
+            }
+            
+            p.model = modelName;
+            p.dtype = message.dtype;
+            p.gpu = message.gpu;
+            
+            // Send initiate message
+            self.postMessage({
+                status: "initiate",
+                task: "automatic-speech-recognition",
+                file: `${modelName}`,
+                name: "Whisper model",
+                progress: 0.01,
+                loaded: 1,
+                total: 100
+            });
+            
+            // Setup progress tracking
+            const startTime = Date.now();
+            let progressTimer = setInterval(() => {
+                const progress = Math.min(0.95, (Date.now() - startTime) / 30000);
+                self.postMessage({
+                    status: "progress",
+                    file: `${modelName}`,
+                    name: "Whisper model",
+                    progress: progress,
+                    loaded: Math.floor(progress * 100),
+                    total: 100
+                });
+            }, 1000);
+            
+            try {
+                // Load the model
+                await p.getInstance((data) => {
+                    // Forward progress data
+                    self.postMessage(data);
+                });
+                
+                // Clear progress timer
+                clearInterval(progressTimer);
+                
+                // Send 100% progress message
+                self.postMessage({
+                    status: "progress",
+                    file: `${modelName}`,
+                    name: "Whisper model",
+                    progress: 1.0,
+                    loaded: 100,
+                    total: 100
+                });
+                
+                // Send done message to clear the progress item
+                self.postMessage({
+                    status: "done",
+                    file: `${modelName}`,
+                    name: "Whisper model"
+                });
+                
+                // Send ready message
+                self.postMessage({
+                    status: "ready",
+                    task: "automatic-speech-recognition"
+                });
+                
+                // Send empty result
+                self.postMessage({
+                    status: "complete",
+                    task: "automatic-speech-recognition",
+                    data: {
+                        text: "",
+                        chunks: []
+                    }
+                });
+                
+                return;
+            } catch (error) {
+                // Clear progress timer
+                clearInterval(progressTimer);
+                
+                // Send error
+                console.error("Error loading model:", error);
+                self.postMessage({
+                    status: "error",
+                    task: "automatic-speech-recognition",
+                    data: {
+                        message: error.message || "Failed to load model",
+                        autoload: true
+                    }
+                });
+                
+                return;
+            }
+        }
+    
+        // Normal transcription for regular audio
+        let transcript = await transcribe(
+            message.audio,
+            message.model,
+            message.multilingual,
+            message.dtype,
+            message.gpu,
+            message.subtask,
+            message.language,
+        );
+        
+        if (transcript === null) return;
+    
+        // Send the result back to the main thread
+        self.postMessage({
+            status: "complete",
+            task: "automatic-speech-recognition",
+            data: transcript,
+        });
+    } catch (error) {
+        console.error("Worker error:", error);
+        self.postMessage({
+            status: "error",
+            task: "automatic-speech-recognition",
+            data: {
+                message: error.message || "Failed to process audio",
+            }
+        });
+    }
 });
 
 class AutomaticSpeechRecognitionPipelineFactory extends PipelineFactory {
